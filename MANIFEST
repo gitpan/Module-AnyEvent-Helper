@@ -12,8 +12,13 @@ t/01_export.t
 t/02_nest.t
 t/03_transform.t
 t/04_filter.t
+t/05_transform4args.t
+t/06_filter4args.t
 t/Test.pm
+t/Test4Args.pm
 t/TestAsync.pm
+t/TestAsync4Args.pm
 t/author-critic.t
+t/release-kwalitee.t
 t/release-pod-coverage.t
 t/release-pod-syntax.t

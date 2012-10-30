@@ -5,7 +5,7 @@ use warnings;
 
 use Carp;
 
-our $VERSION = 'v0.0.1'; # VERSION
+our $VERSION = 'v0.0.2'; # VERSION
 require Exporter;
 our (@ISA) = qw(Exporter);
 our (@EXPORT_OK) = qw(strip_async strip_async_all bind_scalar bind_array);
@@ -64,6 +64,8 @@ sub bind_array
 
 1;
 __END__
+=pod
+
 =head1 NAME
 
 Module::AnyEvent::Helper - Helper module to make other modules AnyEvent-friendly

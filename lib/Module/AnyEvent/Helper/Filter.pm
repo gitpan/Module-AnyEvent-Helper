@@ -3,7 +3,7 @@ package Module::AnyEvent::Helper::Filter;
 use strict;
 use warnings;
 
-our $VERSION = 'v0.0.1'; # VERSION
+our $VERSION = 'v0.0.2'; # VERSION
 
 BEGIN {
 	require filtered;
@@ -12,12 +12,18 @@ BEGIN {
 sub import
 {
 	my ($pkg, %arg) = @_;
+	$arg{-remove_func} ||= [];
+	$arg{-translate_func} ||= [];
+	$arg{-replace_func} ||= [];
+	$arg{-delete_func} ||= [];
 	filtered->import(
 		by => 'Filter::PPI::Transform',
 		with => <<EOF,
 'Module::AnyEvent::Helper::PPI::Transform',
 -remove_func => [qw(@{$arg{-remove_func}})],
 -translate_func => [qw(@{$arg{-translate_func}})],
+-replace_func => [qw(@{$arg{-replace_func}})],
+-delete_func => [qw(@{$arg{-delete_func}})],
 EOF
 		on => $arg{-target},
 		as => $arg{-as},
@@ -110,11 +116,24 @@ Specify name of filtered result module.
 
 =item C<-remove_func>
 
-Specify array reference of removing methods. You need to implement these methods somewhere.
+Specify array reference of removing methods.
+If you want to implement async version of the methods, you specify them in this option.
 
 =item C<-translate_func>
 
-Specify array reference of translating methods. You don't need to implement these methods.
+Specify array reference of translating methods.
+You don't need to implement async version of these methods.
+This module translates implementation.
+
+=item C<-replace_func>
+
+Specify array reference of replacing methods.
+It is expected that async version is implemented elsewhere.
+
+=item C<-delete_func>
+
+Specify array reference of deleting methods.
+If you want to implement not async version of the methods, you specify them in this option.
 
 =back
 

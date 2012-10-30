@@ -2,7 +2,7 @@
 use strict;
 use warnings;
 
-
+use 5.006;
 
 use ExtUtils::MakeMaker 6.30;
 
@@ -23,9 +23,10 @@ my %WriteMakefileArgs = (
     "AnyEvent" => 0,
     "Filter::PPI::Transform" => 0,
     "Filter::Simple" => 0,
+    "PPI" => 0,
     "filtered" => "v0.0.4"
   },
-  "VERSION" => "v0.0.1",
+  "VERSION" => "v0.0.2",
   "test" => {
     "TESTS" => "t/*.t"
   }
