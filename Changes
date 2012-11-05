@@ -1,5 +1,11 @@
 Revision history for Module-AnyEvent-Helper
 
+v0.0.3    2012-11-06 00:14:23 Asia/Tokyo
+    * Check other valid usages of bareword in strict mode.
+    * Add additional transformer support.
+    * Permit spaces between word and parameter list and add support of prior -> chains.
+    * Type check before reference equality comparison to avoid misuse of string.
+
 v0.0.2    2012-10-31 08:20:03 Asia/Tokyo
     * Add -replace_func and -delete_func options in filter.
 

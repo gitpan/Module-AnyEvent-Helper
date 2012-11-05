@@ -24,9 +24,10 @@ my %WriteMakefileArgs = (
     "Filter::PPI::Transform" => 0,
     "Filter::Simple" => 0,
     "PPI" => 0,
+    "PPI::Transform::Sequence" => 0,
     "filtered" => "v0.0.4"
   },
-  "VERSION" => "v0.0.2",
+  "VERSION" => "v0.0.3",
   "test" => {
     "TESTS" => "t/*.t"
   }

@@ -17,6 +17,7 @@ requires:
   Filter::PPI::Transform: 0
   Filter::Simple: 0
   PPI: 0
+  PPI::Transform::Sequence: 0
   filtered: v0.0.4
   perl: 5.006
-version: v0.0.2
+version: v0.0.3

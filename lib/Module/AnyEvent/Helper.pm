@@ -5,7 +5,9 @@ use warnings;
 
 use Carp;
 
-our $VERSION = 'v0.0.2'; # VERSION
+# ABSTRACT: Helper module to make other modules AnyEvent-friendly
+our $VERSION = 'v0.0.3'; # VERSION
+
 require Exporter;
 our (@ISA) = qw(Exporter);
 our (@EXPORT_OK) = qw(strip_async strip_async_all bind_scalar bind_array);
@@ -38,7 +40,7 @@ sub strip_async_all
 	_strip_async($pkg, grep { /_async$/ && defined *{$pkg.'::'.$_}{CODE} } keys %{$pkg.'::'});
 }
 
-my $guard = {};
+my $guard = sub {};
 
 sub bind_scalar
 {
@@ -46,7 +48,7 @@ sub bind_scalar
 
 	$lcv->cb(sub {
 		my $ret = $succ->(shift);
-		$gcv->send($ret) if $ret != $guard;
+		$gcv->send($ret) if ref($ret) ne 'CODE' || $ret != $guard;
 	});
 	$guard;
 }
@@ -57,18 +59,24 @@ sub bind_array
 
 	$lcv->cb(sub {
 		my @ret = $succ->(shift);
-		$gcv->send(@ret) if @ret != 1 || $ret[0] != $guard;
+		$gcv->send(@ret) if @ret != 1 || ref($ret[0]) ne 'CODE' || $ret[0] != $guard;
 	});
 	$guard;
 }
 
 1;
+
 __END__
+
 =pod
 
 =head1 NAME
 
 Module::AnyEvent::Helper - Helper module to make other modules AnyEvent-friendly
+
+=head1 VERSION
+
+version v0.0.3
 
 =head1 SYNOPSIS
 
@@ -123,13 +131,11 @@ Using Coro is one solution, and to make a variant of method to return condition 
 To employ the latter solution, semi-mechanical works are required.
 This module reduces the work bit.
 
-=head1 CLASS METHODS
+=head1 FUNCTIONS
 
-All class methods can be exported but none is exported in default.
+All functions can be exported but none is exported in default.
 
-=over 4
-
-=item strip_async(I<method_names>...)
+=head2 strip_async(I<method_names>...)
 
 Make synchronous version for each specified method
 All method names MUST end with _async.
@@ -139,29 +145,29 @@ If 'func_async' is passed, the following 'func' is made into the calling package
 
 Therefore, func_async MUST be callable as method.
 
-=item strip_async_all()
+=head2 strip_async_all()
 
 strip_async is called for all methods end with _async in the calling package.
 NOTE that error occurs if function, that is not a method, having _async suffix exists.
 
-=item bind_scalar(I<cv1>, I<cv2>, I<successor>)
+=head2 bind_scalar(I<cv1>, I<cv2>, I<successor>)
 
 I<cv1> and I<cv2> MUST be AnyEvent condition variables. I<successor> MUST be code reference.
 
 You can consider I<cv2> is passed to I<successor>, then return value of I<successor>, forced in scalar-context, is sent by I<cv1>.
 Actually, there is some treatment for nested call of bind_scalar/bind_array.
 
-=item bind_array(I<cv1>, I<cv2>, I<successor>)
+=head2 bind_array(I<cv1>, I<cv2>, I<successor>)
 
 Similar as bind_scalar, but return value of successor is forced in array-context.
 
-=back
-
 =head1 AUTHOR
 
-Yasutaka ATARASHI C<yakex@cpan.org>
+Yasutaka ATARASHI <yakex@cpan.org>
 
-=head1 LICENSE
+=head1 COPYRIGHT AND LICENSE
+
+This software is copyright (c) 2012 by Yasutaka ATARASHI.
 
 This is free software; you can redistribute it and/or modify it under
 the same terms as the Perl 5 programming language system itself.

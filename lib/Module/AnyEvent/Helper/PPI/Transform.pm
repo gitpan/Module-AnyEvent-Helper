@@ -3,9 +3,12 @@ package Module::AnyEvent::Helper::PPI::Transform;
 use strict;
 use warnings;
 
-our $VERSION = 'v0.0.2'; # VERSION
+# ABSTRACT: PPI::Transform subclass for AnyEvent-ize helper
+our $VERSION = 'v0.0.3'; # VERSION
 
 use base qw(PPI::Transform);
+
+use Carp;
 
 sub new
 {
@@ -77,22 +80,70 @@ sub _emit_cv_ret
 
 my $shift_recv = PPI::Document->new(\'shift->recv()')->first_element->remove;
 
+sub _find_one_call
+{
+    my ($word) = @_;
+    my ($pre) = [];
+    my $sprev_orig = $word->sprevious_sibling;
+    my ($prev, $sprev) = ($word->previous_sibling, $word->sprevious_sibling);
+    my $state = 'INIT';
+
+# TODO: Probably, this is wrong
+    while(1) {
+#print STDERR "$state : $sprev\n";
+        last unless $sprev;
+        if(($state eq 'INIT' || $state eq 'LIST' || $state eq 'TERM' || $state eq 'SUBTERM') && $sprev->isa('PPI::Token::Operator') && $sprev->content eq '->') {
+            $state = 'OP';
+        } elsif($state eq 'OP' && $sprev->isa('PPI::Structure::List')) {
+            $state = 'LIST';
+        } elsif(($state eq 'OP' || $state eq 'LIST') && ($sprev->isa('PPI::Token::Word') || $sprev->isa('PPI::Token::Symbol'))) {
+            $state = 'TERM';
+        } elsif(($state eq 'OP' || $state eq 'SUBTERM') && 
+                ($sprev->isa('PPI::Structure::Constructor') || $sprev->isa('PPI::Structure::List') || $sprev->isa('PPI::Structure::Subscript'))) {
+            $state = 'SUBTERM';
+        } elsif(($state eq 'OP' || $state eq 'SUBTERM') && 
+                ($sprev->isa('PPI::Token::Word') || $sprev->isa('PPI::Token::Symbol'))) {
+            $state = 'TERM';
+        } elsif(($state eq 'OP' || $state eq 'TERM') && $sprev->isa('PPI::Structure::Block')) {
+            $state = 'BLOCK';
+        } elsif($state eq 'BLOCK' && $sprev->isa('PPI::Token::Cast')) {
+            $state = 'TERM';
+        } elsif($state eq 'INIT' || $state eq 'TERM' || $state eq 'SUBTERM') {
+            last; 
+        } else {
+            $state = 'ERROR'; last;
+        }
+        $prev = $sprev->previous_sibling;
+        $sprev = $sprev->sprevious_sibling;
+    }
+    confess "Unexpected token sequence" unless $state eq 'INIT' || $state eq 'TERM' || $state eq 'SUBTERM';
+    if($state ne 'INIT') {
+        while($sprev ne $sprev_orig) {
+            my $sprev_ = $sprev_orig->sprevious_sibling;
+            unshift @$pre , $sprev_orig->remove;
+            $sprev_orig = $sprev_;
+        }
+    }
+    return [$prev, $pre];
+}
+
 sub _replace_as_shift_recv
 {
     my ($word) = @_;
 
     my $args;
-    my $prev = $word->previous_sibling;
-    my $next = $word->next_sibling;
+    my $next = $word->snext_sibling;
 
-    if($next->isa('PPI::Structure::List')) {
+    my ($prev, $pre) = @{_find_one_call($word)};
+
+    if($next && $next->isa('PPI::Structure::List')) {
         my $next_ = $next->next_sibling;
         $args = $next->remove;
         $next = $next_;
     }
     $word->delete;
     _copy_children($prev, $next, $shift_recv);
-    return $args;
+    return [$pre, $args];
 }
 
 my $bind = PPI::Document->new(\('Module::AnyEvent::Helper::bind_scalar($___cv___, MARK(), sub {'."\n});"))->first_element->remove;
@@ -105,7 +156,7 @@ sub _replace_as_async
     my $prev = $word->previous_sibling;
     my $next = $word->next_sibling;
 
-    my $args = _replace_as_shift_recv($word); # word is removed
+    my ($pre, $args) = @{_replace_as_shift_recv($word)}; # word and prefixes are removed
 
     # Setup binder
     my $bind_ = $bind->clone;
@@ -115,6 +166,11 @@ sub _replace_as_async
         $mark->insert_after($args);
     }
     $mark->set_content($name);
+    while(@$pre) {
+        my $entry = pop @$pre;
+        $mark->insert_before($entry);
+        $mark = $entry;
+    }
 
     # Insert
     $st->insert_before($bind_);
@@ -183,6 +239,16 @@ sub _is_replace_target
     return $self->_is_translate_func($name) || $self->_is_remove_func($name) || $self->_is_replace_func($name);
 }
 
+sub _is_calling
+{
+    my ($self, $word) = @_;
+    return 0 if ! $word->snext_sibling && ! $word->sprevious_sibling &&
+                $word->parent && $word->parent->isa('PPI::Statement::Expression') &&
+                $word->parent->parent && $word->parent->parent->isa('PPI::Structure::Subscript');
+    return 0 if $word->snext_sibling && $word->snext_sibling->isa('PPI::Token::Operator') && $word->snext_sibling->content eq '=>';
+    return 1;
+}
+
 sub document
 {
     my ($self, $doc) = @_;
@@ -203,9 +269,10 @@ sub document
                 _emit_cv_decl($word);
             }
         } else {
-            next if ! defined $word->document;
-            next if ! defined _func_name($word);
-            next if ! $self->_is_translate_func(_func_name($word));
+            next if ! defined $word->document; # Detached element
+            next if ! defined _func_name($word); # Not inside functions / methods
+            next if ! $self->_is_translate_func(_func_name($word)); # Not inside target functions / methods
+            next if ! $self->_is_calling($word); # Not calling
             my $name = $word->content;
             if($self->_is_replace_target($name)) {
                 _replace_as_async($word, $name . '_async');
@@ -220,12 +287,18 @@ sub document
 }
 
 1;
+
 __END__
+
 =pod
 
 =head1 NAME
 
 Module::AnyEvent::Helper::PPI::Transform - PPI::Transform subclass for AnyEvent-ize helper
+
+=head1 VERSION
+
+version v0.0.3
 
 =head1 SYNOPSIS
 
@@ -281,32 +354,30 @@ Create blocking wait methods from _async methods to emit C<Module::AnyEvent::Hel
 
 =back
 
+This module inherits all of L<PPI::Transform> methods.
+
 =head1 OPTIONS
 
-=over 4
-
-=item C<-remove_func>
+=head2 C<-remove_func>
 
 Specify array reference of removing methods.
 If you want to implement async version of the methods, you specify them in this option.
 
-=item C<-translate_func>
+=head2 C<-translate_func>
 
 Specify array reference of translating methods.
 You don't need to implement async version of these methods.
 This module translates implementation.
 
-=item C<-replace_func>
+=head2 C<-replace_func>
 
 Specify array reference of replacing methods.
 It is expected that async version is implemented elsewhere.
 
-=item C<-delete_func>
+=head2 C<-delete_func>
 
 Specify array reference of deleting methods.
 If you want to implement not async version of the methods, you specify them in this option.
-
-=back
 
 =head1 METHODS
 
@@ -316,7 +387,9 @@ This module inherits all of L<PPI::Transform> methods.
 
 Yasutaka ATARASHI <yakex@cpan.org>
 
-=head1 LICENSE
+=head1 COPYRIGHT AND LICENSE
+
+This software is copyright (c) 2012 by Yasutaka ATARASHI.
 
 This is free software; you can redistribute it and/or modify it under
 the same terms as the Perl 5 programming language system itself.
