@@ -7,7 +7,7 @@ use AnyEvent;
 
 package target;
 
-use Module::AnyEvent::Helper qw(bind_array bind_scalar strip_async_all);
+use Module::AnyEvent::Helper;
 
 sub new { return bless {}; }
 
@@ -29,10 +29,10 @@ sub func3_async
 {
 	my $cv = AE::cv;
 	my ($self, $arg) = @_;
-	bind_scalar($cv, func1_async(), sub {
+	Module::AnyEvent::Helper->bind_scalar($cv, func1_async(), sub {
 		die 'Exception by 3' if $arg == 3;
 		return shift->recv if $arg == 1;
-		bind_array($cv, func2_async(), sub {
+		Module::AnyEvent::Helper->bind_array($cv, func2_async(), sub {
 			die 'Exception by 4' if $arg == 4;
 			return shift->recv if $arg == 2;
 		});
@@ -41,7 +41,7 @@ sub func3_async
 }
 
 
-strip_async_all;
+Module::AnyEvent::Helper->strip_async_all;
 
 package main;
 

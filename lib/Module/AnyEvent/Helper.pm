@@ -3,10 +3,11 @@ package Module::AnyEvent::Helper;
 use strict;
 use warnings;
 
+use Try::Tiny;
 use Carp;
 
 # ABSTRACT: Helper module to make other modules AnyEvent-friendly
-our $VERSION = 'v0.0.3'; # VERSION
+our $VERSION = 'v0.0.4'; # VERSION
 
 require Exporter;
 our (@ISA) = qw(Exporter);
@@ -29,37 +30,54 @@ sub _strip_async
 
 sub strip_async
 {
+	shift if eval { $_[0]->isa(__PACKAGE__); };
 	my $pkg = caller;
 	_strip_async($pkg, @_);
 }
 
 sub strip_async_all
 {
+	shift if eval { $_[0]->isa(__PACKAGE__); };
 	my $pkg = caller;
+	my %arg = @_;
+	$arg{-exclude} ||= [];
+	my %exclude = map { $_.'_async', 1 } @{$arg{-exclude}};
 	no strict 'refs'; ## no critic (ProhibitNoStrict)
-	_strip_async($pkg, grep { /_async$/ && defined *{$pkg.'::'.$_}{CODE} } keys %{$pkg.'::'});
+	_strip_async($pkg, grep { /_async$/ && defined *{$pkg.'::'.$_}{CODE} && ! exists $exclude{$_}  } keys %{$pkg.'::'});
 }
 
 my $guard = sub {};
 
 sub bind_scalar
 {
+	shift if eval { $_[0]->isa(__PACKAGE__); };
 	my ($gcv, $lcv, $succ) = @_;
 
 	$lcv->cb(sub {
-		my $ret = $succ->(shift);
-		$gcv->send($ret) if ref($ret) ne 'CODE' || $ret != $guard;
+		my $arg = shift;
+		try {
+			my $ret = $succ->($arg);
+			$gcv->send($ret) if ref($ret) ne 'CODE' || $ret != $guard;
+		} catch {
+			$gcv->croak($_);
+		}
 	});
 	$guard;
 }
 
 sub bind_array
 {
+	shift if eval { $_[0]->isa(__PACKAGE__); };
 	my ($gcv, $lcv, $succ) = @_;
 
 	$lcv->cb(sub {
-		my @ret = $succ->(shift);
-		$gcv->send(@ret) if @ret != 1 || ref($ret[0]) ne 'CODE' || $ret[0] != $guard;
+		my $arg = shift;
+		try {
+			my @ret = $succ->($arg);
+			$gcv->send(@ret) if @ret != 1 || ref($ret[0]) ne 'CODE' || $ret[0] != $guard;
+		} catch {
+			$gcv->croak($_);
+		}
 	});
 	$guard;
 }
@@ -76,7 +94,7 @@ Module::AnyEvent::Helper - Helper module to make other modules AnyEvent-friendly
 
 =head1 VERSION
 
-version v0.0.3
+version v0.0.4
 
 =head1 SYNOPSIS
 
@@ -134,32 +152,37 @@ This module reduces the work bit.
 =head1 FUNCTIONS
 
 All functions can be exported but none is exported in default.
+They can be called as class methods, also.
 
-=head2 strip_async(I<method_names>...)
+=head2 C<strip_async(@names)>
 
-Make synchronous version for each specified method
-All method names MUST end with _async.
-If 'func_async' is passed, the following 'func' is made into the calling package.
+Make synchronous version for each specified method by C<@names>.
+All method names MUST end with C<_async>.
+If C<'func_async'> is passed, the following C<'func'> is made into the calling package.
 
   sub func { shift->func_async(@_)->recv; }
 
-Therefore, func_async MUST be callable as method.
+Therefore, C<func_async> MUST be callable as method.
 
-=head2 strip_async_all()
+=head2 C<strip_async_all>
+
+=head2 C<strip_async_all(-exclude =E<gt> \@list)>
 
 strip_async is called for all methods end with _async in the calling package.
 NOTE that error occurs if function, that is not a method, having _async suffix exists.
 
-=head2 bind_scalar(I<cv1>, I<cv2>, I<successor>)
+You can specify excluding fuction name as C<@list>. Function names SHOULD NOT include _async suffix.
 
-I<cv1> and I<cv2> MUST be AnyEvent condition variables. I<successor> MUST be code reference.
+=head2 C<bind_scalar($cv1, $cv2, \&successor)>
 
-You can consider I<cv2> is passed to I<successor>, then return value of I<successor>, forced in scalar-context, is sent by I<cv1>.
-Actually, there is some treatment for nested call of bind_scalar/bind_array.
+C<$cv1> and C<$cv2> MUST be AnyEvent condition variables. C<\&successor> MUST be code reference.
 
-=head2 bind_array(I<cv1>, I<cv2>, I<successor>)
+You can consider C<$cv2> is passed to C<\&successor>, then return value of C<\&successor>, forced in scalar-context, is sent by C<$cv1>.
+Actually, there is some more treatment for nested call of bind_scalar/bind_array.
 
-Similar as bind_scalar, but return value of successor is forced in array-context.
+=head2 C<bind_array($cv1, $cv2, \&successor)>
+
+Similar as C<bind_scalar>, but return value of successor is forced in array-context.
 
 =head1 AUTHOR
 

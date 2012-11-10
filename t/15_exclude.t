@@ -2,6 +2,7 @@ use strict;
 use warnings;
 
 use Test::More tests => 5;
+use Test::Exception;
 use AnyEvent;
 
 package target;
@@ -27,13 +28,13 @@ sub func2_async
 	return $cv;
 }
 
-strip_async_all;
+strip_async_all(-exclude => [qw(func1)]);
 
 package main;
 
 my $obj = target->new;
 
-ok($obj->func1() == 1);
+throws_ok { $obj->func1() == 1 } qr/Can't locate/, 'exclude';
 ok($obj->func2() == 2);
 
 my $cv = AE::cv;

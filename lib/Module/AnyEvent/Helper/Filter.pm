@@ -4,7 +4,7 @@ use strict;
 use warnings;
 
 # ABSTRACT: source filter for AnyEvent-ize helper
-our $VERSION = 'v0.0.3'; # VERSION
+our $VERSION = 'v0.0.4'; # VERSION
 
 use Carp;
 
@@ -12,14 +12,14 @@ BEGIN {
 	require filtered;
 }
 
+my @keys = qw(-remove_func -translate_func -replace_func -delete_func -exclude_func);
+
 sub import
 {
 	my ($pkg, %arg) = @_;
 	my ($with);
-	$arg{-remove_func} ||= [];
-	$arg{-translate_func} ||= [];
-	$arg{-replace_func} ||= [];
-	$arg{-delete_func} ||= [];
+	$arg{$_} ||= [] for @keys;
+	my $trans_arg = join ",\n", map { $_." => [qw(@{$arg{$_}})]" } @keys;
 	if(exists $arg{-transformer}) {
 		my $transformer = 'Module::AnyEvent::Helper::PPI::Transform::' . $arg{-transformer};
 		eval "require $transformer";
@@ -28,18 +28,12 @@ sub import
 'PPI::Transform::Sequence',
 $transformer => [],
 Module::AnyEvent::Helper::PPI::Transform => [
--remove_func => [qw(@{$arg{-remove_func}})],
--translate_func => [qw(@{$arg{-translate_func}})],
--replace_func => [qw(@{$arg{-replace_func}})],
--delete_func => [qw(@{$arg{-delete_func}})]]
+${trans_arg}]
 EOF
 	} else {
 		$with = <<EOF;
 'Module::AnyEvent::Helper::PPI::Transform',
--remove_func => [qw(@{$arg{-remove_func}})],
--translate_func => [qw(@{$arg{-translate_func}})],
--replace_func => [qw(@{$arg{-replace_func}})],
--delete_func => [qw(@{$arg{-delete_func}})]
+${trans_arg}
 EOF
 	}
 	filtered->import(
@@ -64,7 +58,7 @@ Module::AnyEvent::Helper::Filter - source filter for AnyEvent-ize helper
 
 =head1 VERSION
 
-version v0.0.3
+version v0.0.4
 
 =head1 SYNOPSIS
 
@@ -130,39 +124,44 @@ To combine with your implementation of impl_async(), package FooAsync can be use
 
 =head1 OPTIONS
 
-=head2 C<-target>
+=head2 C<-target =E<gt> $name>
 
 Specify filter target module.
 
-=head2 C<-as>
+=head2 C<-as =E<gt> $name>
 
 Specify name of filtered result module.
 
-=head2 C<-remove_func>
+=head2 C<-remove_func =E<gt> \@func>
 
 Specify array reference of removing methods.
 The function definition is removed and calling the function is converted to calling async version.
 If you want to implement async version of the methods and to convert to ordinary version, you specify them in this option.
 
-=head2 C<-translate_func>
+=head2 C<-translate_func =E<gt> \@func>
 
 Specify array reference of translating methods.
 The function definition is converted to async version and calling the function is converted to calling async version.
 
-=head2 C<-replace_func>
+=head2 C<-replace_func =E<gt> \@func>
 
 Specify array reference of replacing methods.
 The function definition is kept as it is and calling the function is converted to calling async version.
 It is expected that async version is implemented elsewhere.
 
-=head2 C<-delete_func>
+=head2 C<-delete_func =E<gt> \@func>
 
 Specify array reference of deleting methods.
 The function definition is removed and calling the function is kept as it is.
 If you want to implement not-async version of the methods and do not want async version,
 you specify them in this option.
 
-=head2 C<-transformer>
+=head2 C<-exclude_func =E<gt> \@func>
+
+Specify array reference of method names excluded from conversion from async version.
+Suffix _async SHOULD NOT be included.
+
+=head2 C<-transformer =E<gt> $name>
 
 Specify name of additional transformr module.
 C<'Module::AnyEvent::Helper::PPI::Transform::'> is prepended to the name.

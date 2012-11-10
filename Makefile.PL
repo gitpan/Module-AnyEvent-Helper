@@ -2,7 +2,7 @@
 use strict;
 use warnings;
 
-use 5.006;
+use 5.008;
 
 use ExtUtils::MakeMaker 6.30;
 
@@ -11,7 +11,9 @@ use ExtUtils::MakeMaker 6.30;
 my %WriteMakefileArgs = (
   "ABSTRACT" => "Helper module to make other modules AnyEvent-friendly",
   "AUTHOR" => "Yasutaka ATARASHI <yakex\@cpan.org>",
-  "BUILD_REQUIRES" => {},
+  "BUILD_REQUIRES" => {
+    "Test::Exception" => 0
+  },
   "CONFIGURE_REQUIRES" => {
     "ExtUtils::MakeMaker" => "6.30"
   },
@@ -25,9 +27,10 @@ my %WriteMakefileArgs = (
     "Filter::Simple" => 0,
     "PPI" => 0,
     "PPI::Transform::Sequence" => 0,
+    "Try::Tiny" => 0,
     "filtered" => "v0.0.4"
   },
-  "VERSION" => "v0.0.3",
+  "VERSION" => "v0.0.4",
   "test" => {
     "TESTS" => "t/*.t"
   }
