@@ -4,10 +4,11 @@ use strict;
 use warnings;
 
 use Try::Tiny;
+use AnyEvent;
 use Carp;
 
 # ABSTRACT: Helper module to make other modules AnyEvent-friendly
-our $VERSION = 'v0.0.4'; # VERSION
+our $VERSION = 'v0.0.5'; # VERSION
 
 require Exporter;
 our (@ISA) = qw(Exporter);
@@ -53,6 +54,13 @@ sub bind_scalar
 	shift if eval { $_[0]->isa(__PACKAGE__); };
 	my ($gcv, $lcv, $succ) = @_;
 
+	if(!defined $lcv || ref($lcv) ne 'AnyEvent::CondVar') {
+		my $ret = $lcv;
+		$lcv = AE::cv;
+		$lcv->send($ret);
+	}
+	confess 'unexpected undef code reference' unless ref($succ) eq 'CODE';
+
 	$lcv->cb(sub {
 		my $arg = shift;
 		try {
@@ -69,6 +77,13 @@ sub bind_array
 {
 	shift if eval { $_[0]->isa(__PACKAGE__); };
 	my ($gcv, $lcv, $succ) = @_;
+
+	if(!defined $lcv || ref($lcv) ne 'AnyEvent::CondVar') {
+		my $ret = $lcv;
+		$lcv = AE::cv;
+		$lcv->send($ret);
+	}
+	confess 'unexpected undef code reference' unless ref($succ) eq 'CODE';
 
 	$lcv->cb(sub {
 		my $arg = shift;
@@ -94,7 +109,7 @@ Module::AnyEvent::Helper - Helper module to make other modules AnyEvent-friendly
 
 =head1 VERSION
 
-version v0.0.4
+version v0.0.5
 
 =head1 SYNOPSIS
 

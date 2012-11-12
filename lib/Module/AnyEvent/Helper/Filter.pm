@@ -4,7 +4,7 @@ use strict;
 use warnings;
 
 # ABSTRACT: source filter for AnyEvent-ize helper
-our $VERSION = 'v0.0.4'; # VERSION
+our $VERSION = 'v0.0.5'; # VERSION
 
 use Carp;
 
@@ -58,7 +58,7 @@ Module::AnyEvent::Helper::Filter - source filter for AnyEvent-ize helper
 
 =head1 VERSION
 
-version v0.0.4
+version v0.0.5
 
 =head1 SYNOPSIS
 

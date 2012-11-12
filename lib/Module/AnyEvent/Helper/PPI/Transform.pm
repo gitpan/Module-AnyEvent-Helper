@@ -4,17 +4,21 @@ use strict;
 use warnings;
 
 # ABSTRACT: PPI::Transform subclass for AnyEvent-ize helper
-our $VERSION = 'v0.0.4'; # VERSION
+our $VERSION = 'v0.0.5'; # VERSION
 
-use base qw(PPI::Transform Exporter);
 
-require Exporter;
-our (@EXPORT_OK) = qw(
-    function_name is_function_declaration delete_function_declaration
-    copy_children
-    emit_cv emit_cv_into_function
-    replace_as_async
-);
+BEGIN {
+    require Exporter;
+    our (@ISA) = qw(Exporter);
+    our (@EXPORT_OK) = qw(
+        function_name is_function_declaration delete_function_declaration
+        copy_children
+        emit_cv emit_cv_into_function
+        replace_as_async
+    );
+}
+
+use parent qw(PPI::Transform);
 
 use Carp;
 use Scalar::Util qw(blessed);
@@ -350,7 +354,7 @@ Module::AnyEvent::Helper::PPI::Transform - PPI::Transform subclass for AnyEvent-
 
 =head1 VERSION
 
-version v0.0.4
+version v0.0.5
 
 =head1 SYNOPSIS
 
